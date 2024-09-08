@@ -1,0 +1,62 @@
+Question 3: By default, do Django signals run in the same database transaction as
+the caller? Please support your answer with a code snippet that conclusively proves
+your stance. The code does not need to be elegant and production ready, we just need
+to understand your logic.
+
+By default, Django signals do not run in the same database transaction as the caller. 
+Signals like post_save are triggered after the model instance is saved to the database, 
+which means they are not part of the same transaction. This means that the signal handler may run even if the database transaction fails or rolls back later.
+
+You can prove this with a code snippet like the one below:
+
+# models.py
+from django.db import models, transaction
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+class MyModel(models.Model):
+    name = models.CharField(max_length=100)
+
+@receiver(post_save, sender=MyModel)
+def my_signal_handler(sender, instance, **kwargs):
+    print("Signal handler triggered")
+
+# views.py (or run in Django shell)
+from myapp.models import MyModel
+
+def test_transaction():
+    try:
+        with transaction.atomic():
+            obj = MyModel.objects.create(name="Test")
+            print("Object created")
+            raise Exception("Rolling back the transaction")
+    except Exception as e:
+        print(e)
+
+test_transaction()
+
+
+Explanation:
+The test_transaction() function creates a new MyModel instance inside an atomic transaction.
+After the instance is saved, the post_save signal is triggered, and the signal handler prints "Signal handler triggered".
+Immediately after saving, the transaction is deliberately rolled back by raising an exception (raise Exception).
+
+Expected Output:
+
+Object created
+Signal handler triggered
+Rolling back the transaction
+
+Even though the transaction is rolled back, the signal handler is still triggered and runs, 
+which indicates that signals like post_save do not run in the same transaction. 
+This is because the signal is triggered after the object is saved to the database, and the rollback occurs later.
+
+If you want to ensure that the signal is part of the transaction, you can manually control it using transaction.on_commit():
+
+from django.db import transaction
+
+@receiver(post_save, sender=MyModel)
+def my_signal_handler(sender, instance, **kwargs):
+    transaction.on_commit(lambda: print("Signal handler triggered after commit"))
+
+This ensures the signal runs only after the transaction is committed.
