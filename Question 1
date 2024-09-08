@@ -1,0 +1,38 @@
+Question 1: By default, are Django signals executed synchronously or
+asynchronously? Please support your answer with a code snippet that conclusively
+proves your stance. The code does not need to be elegant and production ready, we
+just need to understand your logic.
+
+By default, Django signals are executed synchronously. This means that the signal handlers are called immediately after the signal is sent, blocking the code execution until the handlers complete.
+
+Here's a code snippet to demonstrate this:
+
+# models.py
+from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+import time
+
+class MyModel(models.Model):
+    name = models.CharField(max_length=100)
+
+@receiver(post_save, sender=MyModel)
+def my_signal_handler(sender, instance, **kwargs):
+    print("Signal handler started")
+    time.sleep(5)  # Simulating a time-consuming task
+    print("Signal handler finished")
+
+# In your Django shell or view
+obj = MyModel.objects.create(name="Test")
+print("Object created")
+Explanation:
+When a MyModel instance is created, the post_save signal is triggered.
+The signal handler my_signal_handler starts and introduces a 5-second delay.
+Only after the handler finishes, the next line (print("Object created")) is executed.
+
+Output:
+
+Signal handler started
+Signal handler finished
+Object created
+This shows that the signal handler is executed synchronously, as the message "Object created" is printed only after the signal handler completes.
